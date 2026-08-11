@@ -28,24 +28,48 @@ Built on the JavaScript SDK
 - **Discovers the robots** of the account with their local key and LAN IP,
   and publishes them as **discovered devices**: the user creates them from the
   Gladys Discovery screen.
+- **Discovers compatible Roborock docks** as separate Gladys devices when the
+  robot reports a non-zero `dock_type`, so station maintenance is kept separate
+  from robot maintenance.
 - **Talks to each robot over the LAN** (Roborock protocol on TCP 58867) and falls
   back to a cloud RPC over MQTT when the robot is not reachable locally. The
   transport in use is shown as a badge on the device.
 
 Each **robot** exposes these features:
 
-| Feature    | Category / type                 | Mapping                                            |
-| ---------- | ------------------------------- | -------------------------------------------------- |
-| State      | `vacuum-cleaner` / `state`      | miIO `state` → Gladys state (read-only)            |
-| Run mode   | `vacuum-cleaner` / `run-mode`   | Idle / Clean → `app_stop` / `app_start`            |
+| Feature | Category / type | Mapping |
+| ------- | --------------- | ------- |
+| State | `vacuum-cleaner` / `state` | miIO `state` → Gladys state (read-only) |
+| Run mode | `vacuum-cleaner` / `run-mode` | Idle / Clean → `app_stop` / `app_start` |
 | Clean mode | `vacuum-cleaner` / `clean-mode` | miIO `fan_power` ↔ Gladys clean mode (table below) |
-| Dock       | `vacuum-cleaner` / `dock`       | "Go home" (value 1) → `app_charge`                 |
-| Battery    | `battery` / `integer`           | miIO `battery` (%), read-only, history kept        |
-| Routines   | `button` / `push`               | One button per Roborock cloud routine              |
+| Dock | `vacuum-cleaner` / `dock` | "Go home" (value 1) → `app_charge` |
+| Battery | `battery` / `integer` | miIO `battery` (%), read-only, history kept |
+| Main brush | `unknown` / `unknown` | Remaining main-brush lifetime from `get_consumable` (%) |
+| Side brush | `unknown` / `unknown` | Remaining side-brush lifetime from `get_consumable` (%) |
+| Filter | `hepa-filter-monitoring` / `filter-life-remaining` | Remaining filter lifetime from `get_consumable` (%) |
+| Sensor cleaning | `unknown` / `unknown` | Remaining time before sensor cleaning (%) |
+| Routines | `button` / `push` | One button per Roborock cloud routine |
 
 Routines keep the complete setup saved in the Roborock app, including rooms,
 zones, order, cleaning mode and number of passes. They are fetched during
 discovery and executed through the Roborock cloud API.
+
+Robot maintenance values come from Roborock's `get_consumable` RPC. The
+integration converts elapsed counters to a remaining percentage using the
+standard Roborock maintenance intervals: 300 h for the main brush, 200 h for the
+side brush, 150 h for the filter and 30 h for sensor cleaning.
+
+When a robot reports a compatible dock, Gladys also exposes a separate **dock**
+device with these maintenance features:
+
+| Feature | Category / type | Mapping |
+| ------- | --------------- | ------- |
+| Cleaning brush | `unknown` / `unknown` | Remaining dock cleaning-brush lifetime from `get_consumable` (%) |
+| Dust collection | `unknown` / `unknown` | Remaining dust-collection lifetime from `get_consumable` (%) |
+| Strainer | `unknown` / `unknown` | Remaining dock strainer lifetime from `get_consumable` (%) |
+
+Dock maintenance fields are model-dependent. Missing fields are ignored so docks
+that expose fewer counters remain compatible with the integration.
 
 ### Fan power ↔ clean mode
 
@@ -55,11 +79,11 @@ The five levels below are **verified on real hardware** (Roborock S6, firmware
 
 | Roborock level | Code | Gladys clean mode |
 | -------------- | ---- | ----------------- |
-| Silent         | 101  | Quiet             |
-| Balanced       | 102  | Auto              |
-| Turbo          | 103  | Deep Clean        |
-| Max            | 104  | Vacuum            |
-| Gentle         | 105  | Low Noise         |
+| Silent | 101 | Quiet |
+| Balanced | 102 | Auto |
+| Turbo | 103 | Deep Clean |
+| Max | 104 | Vacuum |
+| Gentle | 105 | Low Noise |
 
 Code `106` ("auto") is **silently ignored** by the S6 — it falls back to 102 —
 so it is never written; it is only accepted on read, as an alias of _Auto_, for
@@ -87,17 +111,18 @@ is remembered so a restart does not probe them again.
 
 ```bash
 npm install
-npm test          # node:test unit tests + an end-to-end test
-npm run lint      # ESLint
-npm run format    # Prettier
+npm test             # node:test unit tests + an end-to-end test
+npm run lint         # ESLint
+npm run format:check # Prettier check
+npm run format       # Prettier
 ```
 
 `test/e2eRoborock.test.js` boots the real `index.js` against a fake Gladys host
 (WebSocket + REST), a fake Roborock cloud and an in-process MQTT broker standing
 in for the robot. It exercises the code request, the link, the silent token
-login, discovery, polling and commands (including cloud routines) — including the traps that cost the most
-time: a used code must be cleared without asking for another one, and an account
-with no robot must still count as linked.
+login, discovery, polling and commands (including cloud routines) — including
+the traps that cost the most time: a used code must be cleared without asking
+for another one, and an account with no robot must still count as linked.
 
 ## Protocol notes (learned the hard way, verified against the live API)
 
@@ -133,6 +158,10 @@ with no robot must still count as linked.
 - Suction-level codes vary across model generations; the table above targets the
   modern codes. If your model reports different values, open an issue with the
   `fan_power` seen in the debug logs.
+- Roborock does not currently have dedicated Gladys feature types for every
+  maintenance item (for example brushes, sensor cleaning and dock maintenance),
+  so those features are temporarily exposed as `unknown` until dedicated Gladys
+  types are available.
 
 ## License
 
