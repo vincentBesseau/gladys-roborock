@@ -12,9 +12,10 @@
 // -----------------------------------------------------------------------------
 
 import { POLL_FREQUENCY } from '../constants.js';
-import { buildVacuumFeatures } from './vacuum.js';
+import { buildDockFeatures, buildVacuumFeatures } from './vacuum.js';
 
 export const VACUUM_SLUG = 'vacuum';
+export const DOCK_SLUG = 'dock';
 
 /**
  * Stamp an explicit, globally-unique selector on each feature.
@@ -42,6 +43,16 @@ export function vacuumExternalIds(gladys, duid) {
 }
 
 /**
+ * Build the external ids of the dock attached to one robot.
+ * @param {import('@gladysassistant/integration-sdk').GladysIntegration} gladys
+ * @param {string} duid the parent Roborock device id
+ * @returns {object} `{ device, feature(featureKey) }`
+ */
+export function dockExternalIds(gladys, duid) {
+  return gladys.externalIds(DOCK_SLUG, String(duid));
+}
+
+/**
  * @param {import('@gladysassistant/integration-sdk').GladysIntegration} gladys
  * @param {object} device a Roborock device (from RoborockClient.listDevices())
  * @returns {object} Gladys discovered device
@@ -55,5 +66,26 @@ export function convertDevice(gladys, device) {
     poll_frequency: POLL_FREQUENCY,
     should_poll: true,
     features: withFeatureSelectors(buildVacuumFeatures(ids, device.routines)),
+  };
+}
+
+
+/**
+ * Convert a Roborock dock into a separate Gladys discovered device.
+ * Communication still goes through the parent robot duid.
+ * @param {import('@gladysassistant/integration-sdk').GladysIntegration} gladys
+ * @param {object} device the parent Roborock robot
+ * @param {number} dockType get_status.dock_type
+ * @returns {object} Gladys discovered dock device
+ */
+export function convertDockDevice(gladys, device, dockType) {
+  const ids = dockExternalIds(gladys, device.duid);
+  return {
+    name: `${device.name} - Dock`,
+    external_id: ids.device,
+    model: `Roborock dock type ${dockType}`,
+    poll_frequency: POLL_FREQUENCY,
+    should_poll: true,
+    features: withFeatureSelectors(buildDockFeatures(ids)),
   };
 }

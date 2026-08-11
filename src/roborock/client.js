@@ -245,6 +245,16 @@ export class RoborockAccountClient {
   }
 
   /**
+   * Fetch the maintenance counters of one robot and its dock.
+   * @param {string} duid the device id
+   * @returns {Promise<object>} the get_consumable result
+   */
+  async getConsumable(duid) {
+    const result = await this.#execute(duid, 'get_consumable', []);
+    return Array.isArray(result) ? result[0] : result;
+  }
+
+  /**
    * Forward an RPC command to one robot.
    * @param {string} duid the device id
    * @param {string} method the Roborock method

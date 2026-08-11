@@ -43,6 +43,17 @@ export const VACUUM_CLEANER_CLEAN_MODE = {
 };
 
 export const BATTERY_BOUNDS = { MIN: 0, MAX: 100 };
+export const CONSUMABLE_BOUNDS = { MIN: 0, MAX: 100 };
+
+export const CONSUMABLE_LIFETIME = {
+  MAIN_BRUSH_SECONDS: 300 * 60 * 60,
+  SIDE_BRUSH_SECONDS: 200 * 60 * 60,
+  FILTER_SECONDS: 150 * 60 * 60,
+  SENSOR_SECONDS: 30 * 60 * 60,
+  DOCK_STRAINER_CYCLES: 150,
+  DOCK_CLEANING_BRUSH_CYCLES: 300,
+  DUST_COLLECTION_CYCLES: 90,
+};
 
 // Devices are polled every 30 seconds. A robot barely changes state while
 // docked; a command triggers an immediate refresh anyway (see index.js).
@@ -86,6 +97,7 @@ export const ROBOROCK_LOCAL_PORT = Number(process.env.ROBOROCK_LOCAL_PORT) || 58
 
 export const ROBOROCK_METHOD = {
   GET_STATUS: 'get_status',
+  GET_CONSUMABLE: 'get_consumable',
   APP_START: 'app_start',
   APP_STOP: 'app_stop',
   APP_PAUSE: 'app_pause',
@@ -185,5 +197,12 @@ export const FEATURE_CODES = {
   CLEAN_MODE: 'clean-mode',
   DOCK: 'dock',
   BATTERY: 'battery',
+  MAIN_BRUSH: 'main-brush',
+  SIDE_BRUSH: 'side-brush',
+  FILTER: 'filter',
+  SENSOR_CLEANING: 'sensor-cleaning',
+  DOCK_STRAINER: 'dock-strainer',
+  DOCK_CLEANING_BRUSH: 'dock-cleaning-brush',
+  DUST_COLLECTION: 'dust-collection',
   ROUTINE_PREFIX: 'routine-',
 };

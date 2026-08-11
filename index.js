@@ -22,8 +22,16 @@
 
 import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
 
-import { convertDevice, vacuumExternalIds } from './src/devices/convertDevice.js';
 import {
+  DOCK_SLUG,
+  convertDevice,
+  convertDockDevice,
+  dockExternalIds,
+  vacuumExternalIds,
+} from './src/devices/convertDevice.js';
+import {
+  buildConsumableStates,
+  buildDockStates,
   buildPollStates,
   buildSetCommand,
   routineIdFromFeatureCode,
@@ -172,8 +180,25 @@ function linkedMessage() {
  */
 async function publishDevices() {
   const devices = roborock.listDevices();
-  logger.info(`${devices.length} robot vacuum(s) found`);
-  await gladys.publishDiscoveredDevices(devices.map((device) => convertDevice(gladys, device)));
+  const discovered = [];
+
+  for (const device of devices) {
+    discovered.push(convertDevice(gladys, device));
+    try {
+      const status = await roborock.getStatus(device.duid);
+      const dockType = Number(status && status.dock_type);
+      if (Number.isFinite(dockType) && dockType > 0) {
+        discovered.push(convertDockDevice(gladys, device, dockType));
+      }
+    } catch (err) {
+      logger.warn(`Could not detect a dock for ${device.duid}: ${err.message}`);
+    }
+  }
+
+  logger.info(
+    `${devices.length} robot vacuum(s) and ${discovered.length - devices.length} dock(s) found`,
+  );
+  await gladys.publishDiscoveredDevices(discovered);
 }
 
 /**
@@ -223,9 +248,24 @@ gladys.onSetValue(async (device, feature, value) => {
 
 // --- Polling: Gladys asks to refresh a device --------------------------------
 gladys.onPoll(async (device) => {
-  const { duid } = parseExternalId(device.external_id);
-  const status = await roborock.getStatus(duid);
-  const states = buildPollStates(vacuumExternalIds(gladys, duid), status);
+  const { slug, duid } = parseExternalId(device.external_id);
+  let states;
+
+  if (slug === DOCK_SLUG) {
+    const consumable = await roborock.getConsumable(duid);
+    states = buildDockStates(dockExternalIds(gladys, duid), consumable);
+  } else {
+    const [status, consumable] = await Promise.all([
+      roborock.getStatus(duid),
+      roborock.getConsumable(duid).catch((err) => {
+        logger.warn(`Could not get consumables for ${duid}: ${err.message}`);
+        return null;
+      }),
+    ]);
+    const ids = vacuumExternalIds(gladys, duid);
+    states = [...buildPollStates(ids, status), ...buildConsumableStates(ids, consumable)];
+  }
+
   if (states.length > 0) {
     await gladys.publishStates(states);
   }

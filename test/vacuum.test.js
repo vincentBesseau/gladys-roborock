@@ -9,6 +9,9 @@ import {
   VACUUM_CLEANER_STATE,
 } from '../src/constants.js';
 import {
+  buildConsumableStates,
+  buildDockFeatures,
+  buildDockStates,
   buildPollStates,
   buildSetCommand,
   buildVacuumFeatures,
@@ -18,11 +21,21 @@ import { fakeVacuumIds } from './helpers/fakeGladys.js';
 
 const ids = fakeVacuumIds('duid');
 
-test('buildVacuumFeatures exposes state, run-mode, clean-mode, dock and battery', () => {
+test('buildVacuumFeatures exposes vacuum state and maintenance features', () => {
   const features = buildVacuumFeatures(ids);
   assert.deepEqual(
     features.map((f) => f.external_id.split(':').pop()),
-    ['state', 'run-mode', 'clean-mode', 'dock', 'battery'],
+    [
+      'state',
+      'run-mode',
+      'clean-mode',
+      'dock',
+      'battery',
+      'main-brush',
+      'side-brush',
+      'filter',
+      'sensor-cleaning',
+    ],
   );
   const state = features.find((f) => f.external_id.endsWith(':state'));
   assert.equal(state.read_only, true);
@@ -36,6 +49,48 @@ test('buildVacuumFeatures exposes state, run-mode, clean-mode, dock and battery'
   const battery = features.find((f) => f.external_id.endsWith(':battery'));
   assert.equal(battery.category, 'battery');
   assert.equal(battery.unit, 'percent');
+});
+
+test('buildConsumableStates maps robot maintenance to remaining percentages', () => {
+  assert.deepEqual(
+    buildConsumableStates(ids, {
+      main_brush_work_time: 150 * 60 * 60,
+      side_brush_work_time: 50 * 60 * 60,
+      filter_work_time: 15 * 60 * 60,
+      sensor_dirty_time: 15 * 60 * 60,
+    }),
+    [
+      { device_feature_external_id: 'ext:test:vacuum:duid:main-brush', state: 50 },
+      { device_feature_external_id: 'ext:test:vacuum:duid:side-brush', state: 75 },
+      { device_feature_external_id: 'ext:test:vacuum:duid:filter', state: 90 },
+      { device_feature_external_id: 'ext:test:vacuum:duid:sensor-cleaning', state: 50 },
+    ],
+  );
+});
+
+test('buildDockFeatures and buildDockStates expose station maintenance', () => {
+  const dockIds = {
+    device: 'ext:test:dock:duid',
+    feature: (key) => `ext:test:dock:duid:${key}`,
+  };
+
+  assert.deepEqual(
+    buildDockFeatures(dockIds).map((feature) => feature.external_id.split(':').pop()),
+    ['dock-strainer', 'dock-cleaning-brush', 'dust-collection'],
+  );
+
+  assert.deepEqual(
+    buildDockStates(dockIds, {
+      strainer_work_times: 15,
+      cleaning_brush_work_times: 30,
+      dust_collection_work_times: 9,
+    }),
+    [
+      { device_feature_external_id: 'ext:test:dock:duid:dock-strainer', state: 90 },
+      { device_feature_external_id: 'ext:test:dock:duid:dock-cleaning-brush', state: 90 },
+      { device_feature_external_id: 'ext:test:dock:duid:dust-collection', state: 90 },
+    ],
+  );
 });
 
 test('buildPollStates maps a charging status to the Gladys states', () => {

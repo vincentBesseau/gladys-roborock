@@ -17,6 +17,8 @@ import {
 
 import {
   BATTERY_BOUNDS,
+  CONSUMABLE_BOUNDS,
+  CONSUMABLE_LIFETIME,
   CLEAN_MODE_TO_FAN_POWER,
   FAN_POWER_TO_CLEAN_MODE,
   FEATURE_CODES,
@@ -88,6 +90,54 @@ export function buildVacuumFeatures(ids, routines = []) {
       category: DEVICE_FEATURE_CATEGORIES.BATTERY,
       type: DEVICE_FEATURE_TYPES.BATTERY.INTEGER,
     },
+    {
+      name: 'Main brush',
+      external_id: ids.feature(FEATURE_CODES.MAIN_BRUSH),
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      min: CONSUMABLE_BOUNDS.MIN,
+      max: CONSUMABLE_BOUNDS.MAX,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
+      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+    },
+    {
+      name: 'Side brush',
+      external_id: ids.feature(FEATURE_CODES.SIDE_BRUSH),
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      min: CONSUMABLE_BOUNDS.MIN,
+      max: CONSUMABLE_BOUNDS.MAX,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
+      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+    },
+    {
+      name: 'Filter',
+      external_id: ids.feature(FEATURE_CODES.FILTER),
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      min: CONSUMABLE_BOUNDS.MIN,
+      max: CONSUMABLE_BOUNDS.MAX,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      category: DEVICE_FEATURE_CATEGORIES.HEPA_FILTER_MONITORING,
+      type: DEVICE_FEATURE_TYPES.FILTER_MONITORING.FILTER_LIFE_REMAINING,
+    },
+    {
+      name: 'Sensor cleaning',
+      external_id: ids.feature(FEATURE_CODES.SENSOR_CLEANING),
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      min: CONSUMABLE_BOUNDS.MIN,
+      max: CONSUMABLE_BOUNDS.MAX,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
+      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+    },
   ];
 
   for (const routine of routines) {
@@ -105,6 +155,52 @@ export function buildVacuumFeatures(ids, routines = []) {
   }
 
   return features;
+}
+
+/**
+ * Build maintenance features exposed by a Roborock dock.
+ * @param {object} ids external ids of the Gladys dock device
+ * @returns {Array} Gladys dock features
+ */
+export function buildDockFeatures(ids) {
+  return [
+    {
+      name: 'Strainer',
+      external_id: ids.feature(FEATURE_CODES.DOCK_STRAINER),
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      min: CONSUMABLE_BOUNDS.MIN,
+      max: CONSUMABLE_BOUNDS.MAX,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
+      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+    },
+    {
+      name: 'Cleaning brush',
+      external_id: ids.feature(FEATURE_CODES.DOCK_CLEANING_BRUSH),
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      min: CONSUMABLE_BOUNDS.MIN,
+      max: CONSUMABLE_BOUNDS.MAX,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
+      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+    },
+    {
+      name: 'Dust collection',
+      external_id: ids.feature(FEATURE_CODES.DUST_COLLECTION),
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      min: CONSUMABLE_BOUNDS.MIN,
+      max: CONSUMABLE_BOUNDS.MAX,
+      unit: DEVICE_FEATURE_UNITS.PERCENT,
+      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
+      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+    },
+  ];
 }
 
 /**
@@ -162,6 +258,77 @@ export function buildPollStates(ids, status) {
     states.push({
       device_feature_external_id: ids.feature(FEATURE_CODES.BATTERY),
       state: battery,
+    });
+  }
+
+  return states;
+}
+
+function remainingPercent(consumed, lifetime) {
+  return Math.round(Math.max(0, Math.min(100, (1 - consumed / lifetime) * 100)));
+}
+
+/**
+ * Convert robot maintenance counters returned by get_consumable to percentages.
+ * Missing values are ignored so older models stay compatible.
+ * @param {object} ids external ids of the Gladys robot
+ * @param {object} consumable get_consumable result
+ * @returns {Array} states for gladys.publishStates()
+ */
+export function buildConsumableStates(ids, consumable) {
+  const states = [];
+  const mappings = [
+    [FEATURE_CODES.MAIN_BRUSH, 'main_brush_work_time', CONSUMABLE_LIFETIME.MAIN_BRUSH_SECONDS],
+    [FEATURE_CODES.SIDE_BRUSH, 'side_brush_work_time', CONSUMABLE_LIFETIME.SIDE_BRUSH_SECONDS],
+    [FEATURE_CODES.FILTER, 'filter_work_time', CONSUMABLE_LIFETIME.FILTER_SECONDS],
+    [FEATURE_CODES.SENSOR_CLEANING, 'sensor_dirty_time', CONSUMABLE_LIFETIME.SENSOR_SECONDS],
+  ];
+
+  for (const [featureCode, field, lifetime] of mappings) {
+    const consumed = toNumber(consumable && consumable[field]);
+    if (consumed === null) {
+      continue;
+    }
+    states.push({
+      device_feature_external_id: ids.feature(featureCode),
+      state: remainingPercent(consumed, lifetime),
+    });
+  }
+
+  return states;
+}
+
+/**
+ * Convert dock maintenance counters returned by get_consumable to percentages.
+ * Missing values are ignored because dock generations expose different fields.
+ * @param {object} ids external ids of the Gladys dock
+ * @param {object} consumable get_consumable result
+ * @returns {Array} states for gladys.publishStates()
+ */
+export function buildDockStates(ids, consumable) {
+  const states = [];
+  const mappings = [
+    [FEATURE_CODES.DOCK_STRAINER, 'strainer_work_times', CONSUMABLE_LIFETIME.DOCK_STRAINER_CYCLES],
+    [
+      FEATURE_CODES.DOCK_CLEANING_BRUSH,
+      'cleaning_brush_work_times',
+      CONSUMABLE_LIFETIME.DOCK_CLEANING_BRUSH_CYCLES,
+    ],
+    [
+      FEATURE_CODES.DUST_COLLECTION,
+      'dust_collection_work_times',
+      CONSUMABLE_LIFETIME.DUST_COLLECTION_CYCLES,
+    ],
+  ];
+
+  for (const [featureCode, field, lifetime] of mappings) {
+    const consumed = toNumber(consumable && consumable[field]);
+    if (consumed === null) {
+      continue;
+    }
+    states.push({
+      device_feature_external_id: ids.feature(featureCode),
+      state: remainingPercent(consumed, lifetime),
     });
   }
 
