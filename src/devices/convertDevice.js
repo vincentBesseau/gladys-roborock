@@ -69,7 +69,6 @@ export function convertDevice(gladys, device) {
   };
 }
 
-
 /**
  * Convert a Roborock dock into a separate Gladys discovered device.
  * Communication still goes through the parent robot duid.

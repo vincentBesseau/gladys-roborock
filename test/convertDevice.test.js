@@ -52,11 +52,7 @@ test('vacuumExternalIds builds the device + feature ids', () => {
 });
 
 test('convertDockDevice builds a separate Gladys device for the station', () => {
-  const device = convertDockDevice(
-    gladys,
-    { duid: 'duid-2', name: 'Living room robot' },
-    21,
-  );
+  const device = convertDockDevice(gladys, { duid: 'duid-2', name: 'Living room robot' }, 21);
   assert.equal(device.external_id, 'ext:test:dock:duid-2');
   assert.equal(device.name, 'Living room robot - Dock');
   assert.equal(device.model, 'Roborock dock type 21');
