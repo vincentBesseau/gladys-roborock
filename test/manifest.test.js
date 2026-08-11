@@ -71,6 +71,19 @@ test('every manifest action has a registered handler, and vice versa', () => {
   assert.deepEqual(declared, handled);
 });
 
+test('the description stays within the bounds the store enforces', () => {
+  // 10-100 characters per language. Adding a couple of words to the French one
+  // is all it took to push it over: the store indexer and Gladys both reject the
+  // manifest outright, and nothing in the repo said so until an install failed.
+  Object.entries(manifest.description).forEach(([language, text]) => {
+    assert.ok(
+      text.length >= 10 && text.length <= 100,
+      `description.${language} is ${text.length} characters, outside 10-100`,
+    );
+  });
+  assert.ok(manifest.description.en, 'the english description is mandatory');
+});
+
 test('the docker image tag matches the manifest version', () => {
   // Publishing a manifest whose version and image disagree installs the wrong
   // code, and the store cannot catch it.
