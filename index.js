@@ -22,8 +22,16 @@
 
 import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
 
-import { convertDevice, vacuumExternalIds } from './src/devices/convertDevice.js';
 import {
+  DOCK_SLUG,
+  convertDevice,
+  convertDockDevice,
+  dockExternalIds,
+  vacuumExternalIds,
+} from './src/devices/convertDevice.js';
+import {
+  buildConsumableStates,
+  buildDockStates,
   buildPollStates,
   buildSetCommand,
   routineIdFromFeatureCode,
@@ -36,6 +44,11 @@ import {
   sameSession,
   sessionToConfig,
 } from './src/session.js';
+import {
+  FEATURE_CODES,
+  ROBOROCK_SEGMENT_CLEANING_STATES,
+  ROOM_SELECTION_NONE,
+} from './src/constants.js';
 import { CODE_REFUSED, RoborockAccountClient } from './src/roborock/client.js';
 
 const gladys = new GladysIntegration();
@@ -55,6 +68,63 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 let roborockEmail = null;
 let session = readSession();
 let roborock = new RoborockAccountClient(session);
+
+// Appareils pour lesquels un nettoyage par pièce vient d'être demandé.
+// `active` passe à true uniquement après avoir observé un état Roborock
+// correspondant réellement à un nettoyage par segment.
+const roomCleanings = new Map();
+
+// Permet de remettre à zéro une ancienne sélection après un redémarrage de
+// l'intégration, sans effacer une nouvelle sélection avant son démarrage.
+const initializedRoomSelectors = new Set();
+
+/**
+ * Build the room selector feedback produced by a robot status change.
+ *
+ * The selector is reset only after a segment cleaning has actually been
+ * observed and the robot has subsequently left every segment-cleaning state.
+ *
+ * @param {string} duid Roborock device id
+ * @param {object} ids Gladys external ids
+ * @param {object} status get_status result
+ * @param {boolean} hasRoomSelector whether the robot exposes rooms
+ * @returns {object|null} Gladys text state to publish
+ */
+function buildRoomSelectionFeedback(duid, ids, status, hasRoomSelector) {
+  if (!hasRoomSelector) {
+    return null;
+  }
+
+  const roborockState = Number(status && status.state);
+  const isSegmentCleaning = ROBOROCK_SEGMENT_CLEANING_STATES.has(roborockState);
+
+  const trackedCleaning = roomCleanings.get(duid);
+
+  if (isSegmentCleaning) {
+    roomCleanings.set(duid, {
+      active: true,
+    });
+
+    initializedRoomSelectors.add(duid);
+
+    return null;
+  }
+
+  const shouldReset = trackedCleaning?.active === true || !initializedRoomSelectors.has(duid);
+
+  initializedRoomSelectors.add(duid);
+
+  if (!shouldReset) {
+    return null;
+  }
+
+  roomCleanings.delete(duid);
+
+  return {
+    device_feature_external_id: ids.feature(FEATURE_CODES.ROOM),
+    text: ROOM_SELECTION_NONE,
+  };
+}
 
 /**
  * Split a device external id (`ext:<selector>:vacuum:<duid>`, built with
@@ -172,8 +242,25 @@ function linkedMessage() {
  */
 async function publishDevices() {
   const devices = roborock.listDevices();
-  logger.info(`${devices.length} robot vacuum(s) found`);
-  await gladys.publishDiscoveredDevices(devices.map((device) => convertDevice(gladys, device)));
+  const discovered = [];
+
+  for (const device of devices) {
+    discovered.push(convertDevice(gladys, device));
+    try {
+      const status = await roborock.getStatus(device.duid);
+      const dockType = Number(status && status.dock_type);
+      if (Number.isFinite(dockType) && dockType > 0) {
+        discovered.push(convertDockDevice(gladys, device, dockType));
+      }
+    } catch (err) {
+      logger.warn(`Could not detect a dock for ${device.duid}: ${err.message}`);
+    }
+  }
+
+  logger.info(
+    `${devices.length} robot vacuum(s) and ${discovered.length - devices.length} dock(s) found`,
+  );
+  await gladys.publishDiscoveredDevices(discovered);
 }
 
 /**
@@ -203,6 +290,14 @@ gladys.onSetValue(async (device, feature, value) => {
   const { duid } = parseExternalId(device.external_id);
   const featureCode = feature.external_id.split(':').pop();
 
+  // L’option vide efface seulement la sélection. Le nettoyage complet reste
+  // exclusivement piloté par le mode de fonctionnement.
+  if (featureCode === FEATURE_CODES.ROOM && value === ROOM_SELECTION_NONE) {
+    roomCleanings.delete(duid);
+    initializedRoomSelectors.add(duid);
+    return;
+  }
+
   const routineId = routineIdFromFeatureCode(featureCode);
   if (routineId !== null) {
     // A push button only has an actionable pressed state. Ignore its release
@@ -219,13 +314,50 @@ gladys.onSetValue(async (device, feature, value) => {
     throw new Error(`Feature "${feature.external_id}" is not controllable with value ${value}`);
   }
   await roborock.sendCommand(duid, command.method, command.params);
+
+  if (featureCode === FEATURE_CODES.ROOM) {
+    // La commande a été acceptée, mais le robot n’est peut-être pas encore
+    // passé en état segment_cleaning. Le prochain poll ne doit donc pas
+    // réinitialiser immédiatement le sélecteur.
+    roomCleanings.set(duid, {
+      active: false,
+    });
+
+    initializedRoomSelectors.add(duid);
+  }
 });
 
 // --- Polling: Gladys asks to refresh a device --------------------------------
 gladys.onPoll(async (device) => {
-  const { duid } = parseExternalId(device.external_id);
-  const status = await roborock.getStatus(duid);
-  const states = buildPollStates(vacuumExternalIds(gladys, duid), status);
+  const { slug, duid } = parseExternalId(device.external_id);
+  let states;
+
+  if (slug === DOCK_SLUG) {
+    const consumable = await roborock.getConsumable(duid);
+    states = buildDockStates(dockExternalIds(gladys, duid), consumable);
+  } else {
+    const [status, consumable] = await Promise.all([
+      roborock.getStatus(duid),
+      roborock.getConsumable(duid).catch((err) => {
+        logger.warn(`Could not get consumables for ${duid}: ${err.message}`);
+        return null;
+      }),
+    ]);
+    const ids = vacuumExternalIds(gladys, duid);
+    states = [...buildPollStates(ids, status), ...buildConsumableStates(ids, consumable)];
+    const robot = roborock.listDevices().find((candidate) => candidate.duid === duid);
+    const roomSelectionFeedback = buildRoomSelectionFeedback(
+      duid,
+      ids,
+      status,
+      Boolean(robot?.rooms?.length),
+    );
+
+    if (roomSelectionFeedback) {
+      states.push(roomSelectionFeedback);
+    }
+  }
+
   if (states.length > 0) {
     await gladys.publishStates(states);
   }

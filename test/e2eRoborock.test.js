@@ -322,8 +322,19 @@ test('the integration drives a robot on a ROBOROCK account', async (t) => {
     assert.equal(devices[0].model, 'roborock.vacuum.a70');
     // The common vacuum features plus one cloud routine push button.
     assert.deepEqual(
-      devices[0].features.map((f) => f.external_id.split(':').pop()),
-      ['state', 'run-mode', 'clean-mode', 'dock', 'battery', `routine-${ROUTINE_ID}`],
+      devices[0].features.map((feature) => feature.external_id.split(':').pop()),
+      [
+        'state',
+        'run-mode',
+        'clean-mode',
+        'dock',
+        'battery',
+        'main-brush',
+        'side-brush',
+        'filter',
+        'sensor-cleaning',
+        `routine-${ROUTINE_ID}`,
+      ],
     );
     const routine = devices[0].features.at(-1);
     assert.equal(routine.name, 'Routine - After lunch');

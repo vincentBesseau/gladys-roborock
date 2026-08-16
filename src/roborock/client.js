@@ -14,9 +14,11 @@
 
 import { createLogger } from '@gladysassistant/integration-sdk';
 
+import { ROBOROCK_METHOD } from '../constants.js';
 import { RoborockLocalTransport } from './localTransport.js';
 import { RoborockMqttTransport } from './mqttTransport.js';
 import { RoborockRestClient } from './restClient.js';
+import { normalizeRoomMappings } from './rooms.js';
 
 const logger = createLogger({ name: 'roborock:client' });
 
@@ -194,6 +196,7 @@ export class RoborockAccountClient {
         model: product.model || null,
         online: device.online !== false,
         routines: [],
+        rooms: [],
       };
     });
 
@@ -222,6 +225,20 @@ export class RoborockAccountClient {
     }
     this.mqtt = new RoborockMqttTransport(this.rest.rriot, this.localKeys);
     await this.mqtt.connect();
+
+    await Promise.all(
+      this.devices.map(async (device) => {
+        try {
+          const mapping = await this.#execute(device.duid, ROBOROCK_METHOD.GET_ROOM_MAPPING, []);
+
+          device.rooms = normalizeRoomMappings(mapping, homeData.rooms || []);
+        } catch (err) {
+          // Certains anciens modèles ne fournissent aucune correspondance de pièce.
+          // Le robot reste découvert, simplement sans le sélecteur.
+          logger.warn(`Could not load rooms for ${device.duid}: ${err.message}`);
+        }
+      }),
+    );
   }
 
   // --- Common ----------------------------------------------------------------
@@ -241,6 +258,16 @@ export class RoborockAccountClient {
    */
   async getStatus(duid) {
     const result = await this.#execute(duid, 'get_status', []);
+    return Array.isArray(result) ? result[0] : result;
+  }
+
+  /**
+   * Fetch the maintenance counters of one robot and its dock.
+   * @param {string} duid the device id
+   * @returns {Promise<object>} the get_consumable result
+   */
+  async getConsumable(duid) {
+    const result = await this.#execute(duid, 'get_consumable', []);
     return Array.isArray(result) ? result[0] : result;
   }
 
