@@ -102,8 +102,10 @@ export const ROBOROCK_METHOD = {
   APP_STOP: 'app_stop',
   APP_PAUSE: 'app_pause',
   APP_CHARGE: 'app_charge',
+  APP_SEGMENT_CLEAN: 'app_segment_clean',
   SET_FAN_POWER: 'set_custom_mode',
   GET_FAN_POWER: 'get_custom_mode',
+  GET_ROOM_MAPPING: 'get_room_mapping',
   GET_NETWORK_INFO: 'get_network_info',
 };
 
@@ -201,6 +203,7 @@ export const FEATURE_CODES = {
   SIDE_BRUSH: 'side-brush',
   FILTER: 'filter',
   SENSOR_CLEANING: 'sensor-cleaning',
+  ROOM: 'room',
   DOCK_STRAINER: 'dock-strainer',
   DOCK_CLEANING_BRUSH: 'dock-cleaning-brush',
   DUST_COLLECTION: 'dust-collection',

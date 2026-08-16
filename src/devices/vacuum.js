@@ -35,7 +35,7 @@ import {
  *   `{ device, feature(featureKey) }`
  * @returns {Array} Gladys device features
  */
-export function buildVacuumFeatures(ids, routines = []) {
+export function buildVacuumFeatures(ids, routines = [], rooms = []) {
   const features = [
     {
       name: 'State',
@@ -139,6 +139,23 @@ export function buildVacuumFeatures(ids, routines = []) {
       type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
     },
   ];
+
+  if (rooms.length > 0) {
+    features.push({
+      name: 'Room to clean',
+      external_id: ids.feature(FEATURE_CODES.ROOM),
+      read_only: false,
+      has_feedback: false,
+      keep_history: false,
+      category: DEVICE_FEATURE_CATEGORIES.TEXT,
+      type: DEVICE_FEATURE_TYPES.TEXT.SELECT,
+      supported_options: rooms.map((room, index) => ({
+        value: String(room.id),
+        label: room.name,
+        sort_order: index,
+      })),
+    });
+  }
 
   for (const routine of routines) {
     features.push({
@@ -358,6 +375,15 @@ export function buildSetCommand(featureCode, value) {
       return fanPower === undefined
         ? null
         : { method: ROBOROCK_METHOD.SET_FAN_POWER, params: [fanPower] };
+    }
+    case FEATURE_CODES.ROOM: {
+      const segmentId = toNumber(value);
+      return Number.isSafeInteger(segmentId) && segmentId >= 0
+        ? {
+            method: ROBOROCK_METHOD.APP_SEGMENT_CLEAN,
+            params: [{ segments: [segmentId] }],
+          }
+        : null;
     }
     case FEATURE_CODES.DOCK:
       // Only "go home" (value 1) is actionable, like the Matter integration.

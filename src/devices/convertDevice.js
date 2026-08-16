@@ -29,7 +29,10 @@ export const DOCK_SLUG = 'dock';
  * @returns {Array} the same features, each carrying a unique `selector`
  */
 function withFeatureSelectors(features) {
-  return features.map((feature) => ({ ...feature, selector: feature.external_id }));
+  return features.map((feature) => ({
+    ...feature,
+    selector: feature.external_id,
+  }));
 }
 
 /**
@@ -53,6 +56,7 @@ export function dockExternalIds(gladys, duid) {
 }
 
 /**
+ * Convert a Roborock robot into a Gladys discovered device.
  * @param {import('@gladysassistant/integration-sdk').GladysIntegration} gladys
  * @param {object} device a Roborock device (from RoborockClient.listDevices())
  * @returns {object} Gladys discovered device
@@ -65,7 +69,7 @@ export function convertDevice(gladys, device) {
     model: device.model || null,
     poll_frequency: POLL_FREQUENCY,
     should_poll: true,
-    features: withFeatureSelectors(buildVacuumFeatures(ids, device.routines)),
+    features: withFeatureSelectors(buildVacuumFeatures(ids, device.routines, device.rooms)),
   };
 }
 
