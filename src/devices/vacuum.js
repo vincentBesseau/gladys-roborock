@@ -100,8 +100,8 @@ export function buildVacuumFeatures(ids, routines = [], rooms = []) {
       min: CONSUMABLE_BOUNDS.MIN,
       max: CONSUMABLE_BOUNDS.MAX,
       unit: DEVICE_FEATURE_UNITS.PERCENT,
-      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
-      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+      category: DEVICE_FEATURE_CATEGORIES.MAINTENANCE,
+      type: DEVICE_FEATURE_TYPES.MAINTENANCE.LIFE_REMAINING,
     },
     {
       name: 'Side brush',
@@ -112,8 +112,8 @@ export function buildVacuumFeatures(ids, routines = [], rooms = []) {
       min: CONSUMABLE_BOUNDS.MIN,
       max: CONSUMABLE_BOUNDS.MAX,
       unit: DEVICE_FEATURE_UNITS.PERCENT,
-      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
-      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+      category: DEVICE_FEATURE_CATEGORIES.MAINTENANCE,
+      type: DEVICE_FEATURE_TYPES.MAINTENANCE.LIFE_REMAINING,
     },
     {
       name: 'Filter',
@@ -124,8 +124,8 @@ export function buildVacuumFeatures(ids, routines = [], rooms = []) {
       min: CONSUMABLE_BOUNDS.MIN,
       max: CONSUMABLE_BOUNDS.MAX,
       unit: DEVICE_FEATURE_UNITS.PERCENT,
-      category: DEVICE_FEATURE_CATEGORIES.HEPA_FILTER_MONITORING,
-      type: DEVICE_FEATURE_TYPES.FILTER_MONITORING.FILTER_LIFE_REMAINING,
+      category: DEVICE_FEATURE_CATEGORIES.MAINTENANCE,
+      type: DEVICE_FEATURE_TYPES.MAINTENANCE.LIFE_REMAINING,
     },
     {
       name: 'Sensor cleaning',
@@ -136,8 +136,8 @@ export function buildVacuumFeatures(ids, routines = [], rooms = []) {
       min: CONSUMABLE_BOUNDS.MIN,
       max: CONSUMABLE_BOUNDS.MAX,
       unit: DEVICE_FEATURE_UNITS.PERCENT,
-      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
-      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+      category: DEVICE_FEATURE_CATEGORIES.MAINTENANCE,
+      type: DEVICE_FEATURE_TYPES.MAINTENANCE.LIFE_REMAINING,
     },
   ];
 
@@ -200,8 +200,8 @@ export function buildDockFeatures(ids) {
       min: CONSUMABLE_BOUNDS.MIN,
       max: CONSUMABLE_BOUNDS.MAX,
       unit: DEVICE_FEATURE_UNITS.PERCENT,
-      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
-      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+      category: DEVICE_FEATURE_CATEGORIES.MAINTENANCE,
+      type: DEVICE_FEATURE_TYPES.MAINTENANCE.LIFE_REMAINING,
     },
     {
       name: 'Cleaning brush',
@@ -212,8 +212,8 @@ export function buildDockFeatures(ids) {
       min: CONSUMABLE_BOUNDS.MIN,
       max: CONSUMABLE_BOUNDS.MAX,
       unit: DEVICE_FEATURE_UNITS.PERCENT,
-      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
-      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+      category: DEVICE_FEATURE_CATEGORIES.MAINTENANCE,
+      type: DEVICE_FEATURE_TYPES.MAINTENANCE.LIFE_REMAINING,
     },
     {
       name: 'Dust collection',
@@ -224,8 +224,8 @@ export function buildDockFeatures(ids) {
       min: CONSUMABLE_BOUNDS.MIN,
       max: CONSUMABLE_BOUNDS.MAX,
       unit: DEVICE_FEATURE_UNITS.PERCENT,
-      category: DEVICE_FEATURE_CATEGORIES.UNKNOWN,
-      type: DEVICE_FEATURE_TYPES.UNKNOWN.UNKNOWN,
+      category: DEVICE_FEATURE_CATEGORIES.MAINTENANCE,
+      type: DEVICE_FEATURE_TYPES.MAINTENANCE.LIFE_REMAINING,
     },
   ];
 }
