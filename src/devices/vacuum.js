@@ -25,6 +25,7 @@ import {
   ROBOROCK_CLEANING_STATES,
   ROBOROCK_METHOD,
   ROBOROCK_STATE_TO_GLADYS,
+  ROOM_SELECTION_NONE,
   VACUUM_CLEANER_MODE,
   VACUUM_CLEANER_STATE,
 } from '../constants.js';
@@ -151,11 +152,18 @@ export function buildVacuumFeatures(ids, routines = [], rooms = []) {
       max: 0,
       category: DEVICE_FEATURE_CATEGORIES.TEXT,
       type: DEVICE_FEATURE_TYPES.TEXT.SELECT,
-      supported_options: rooms.map((room, index) => ({
-        value: String(room.id),
-        label: room.name,
-        sort_order: index,
-      })),
+      supported_options: [
+        {
+          value: ROOM_SELECTION_NONE,
+          label: '—',
+          sort_order: 0,
+        },
+        ...rooms.map((room, index) => ({
+          value: String(room.id),
+          label: room.name,
+          sort_order: index + 1,
+        })),
+      ],
     });
   }
 
@@ -383,7 +391,11 @@ export function buildSetCommand(featureCode, value) {
       return Number.isSafeInteger(segmentId) && segmentId >= 0
         ? {
             method: ROBOROCK_METHOD.APP_SEGMENT_CLEAN,
-            params: [{ segments: [segmentId] }],
+            params: [
+              {
+                segments: [segmentId],
+              },
+            ],
           }
         : null;
     }

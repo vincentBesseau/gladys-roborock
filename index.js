@@ -44,6 +44,7 @@ import {
   sameSession,
   sessionToConfig,
 } from './src/session.js';
+import { FEATURE_CODES, ROOM_SELECTION_NONE } from './src/constants.js';
 import { CODE_REFUSED, RoborockAccountClient } from './src/roborock/client.js';
 
 const gladys = new GladysIntegration();
@@ -227,6 +228,12 @@ gladys.onSetValue(async (device, feature, value) => {
   logger.info(`onSetValue <- ${feature.external_id} = ${value}`);
   const { duid } = parseExternalId(device.external_id);
   const featureCode = feature.external_id.split(':').pop();
+
+  // L’option vide désactive la sélection de pièce sans envoyer de commande
+  // au robot. Le nettoyage complet reste piloté par le mode de fonctionnement.
+  if (featureCode === FEATURE_CODES.ROOM && value === ROOM_SELECTION_NONE) {
+    return;
+  }
 
   const routineId = routineIdFromFeatureCode(featureCode);
   if (routineId !== null) {

@@ -44,6 +44,7 @@ export const VACUUM_CLEANER_CLEAN_MODE = {
 
 export const BATTERY_BOUNDS = { MIN: 0, MAX: 100 };
 export const CONSUMABLE_BOUNDS = { MIN: 0, MAX: 100 };
+export const ROOM_SELECTION_NONE = 'none';
 
 export const CONSUMABLE_LIFETIME = {
   MAIN_BRUSH_SECONDS: 300 * 60 * 60,
