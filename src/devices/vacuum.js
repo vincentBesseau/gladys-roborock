@@ -147,6 +147,8 @@ export function buildVacuumFeatures(ids, routines = [], rooms = []) {
       read_only: false,
       has_feedback: false,
       keep_history: false,
+      min: 0,
+      max: 0,
       category: DEVICE_FEATURE_CATEGORIES.TEXT,
       type: DEVICE_FEATURE_TYPES.TEXT.SELECT,
       supported_options: rooms.map((room, index) => ({
