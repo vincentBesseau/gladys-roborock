@@ -46,6 +46,13 @@ export const BATTERY_BOUNDS = { MIN: 0, MAX: 100 };
 export const CONSUMABLE_BOUNDS = { MIN: 0, MAX: 100 };
 export const ROOM_SELECTION_NONE = 'none';
 
+export const ROBOROCK_SEGMENT_CLEANING_STATES = new Set([
+  18, // segment_cleaning
+  6304, // segment_mopping
+  6305, // segment_clean_mop_cleaning
+  6306, // segment_clean_mop_mopping
+]);
+
 export const CONSUMABLE_LIFETIME = {
   MAIN_BRUSH_SECONDS: 300 * 60 * 60,
   SIDE_BRUSH_SECONDS: 200 * 60 * 60,
