@@ -90,19 +90,13 @@ const initializedRoomSelectors = new Set();
  * @param {boolean} hasRoomSelector whether the robot exposes rooms
  * @returns {object|null} Gladys text state to publish
  */
-function buildRoomSelectionFeedback(
-  duid,
-  ids,
-  status,
-  hasRoomSelector,
-) {
+function buildRoomSelectionFeedback(duid, ids, status, hasRoomSelector) {
   if (!hasRoomSelector) {
     return null;
   }
 
   const roborockState = Number(status && status.state);
-  const isSegmentCleaning =
-    ROBOROCK_SEGMENT_CLEANING_STATES.has(roborockState);
+  const isSegmentCleaning = ROBOROCK_SEGMENT_CLEANING_STATES.has(roborockState);
 
   const trackedCleaning = roomCleanings.get(duid);
 
@@ -116,9 +110,7 @@ function buildRoomSelectionFeedback(
     return null;
   }
 
-  const shouldReset =
-    trackedCleaning?.active === true ||
-    !initializedRoomSelectors.has(duid);
+  const shouldReset = trackedCleaning?.active === true || !initializedRoomSelectors.has(duid);
 
   initializedRoomSelectors.add(duid);
 
