@@ -272,6 +272,19 @@ export class RoborockAccountClient {
   }
 
   /**
+   * Fetch the cleaning history summary of one robot.
+   *
+   * Roborock returns the most recent cleaning start timestamps in `records`.
+   * Support varies by model, so callers must treat this RPC as optional.
+   *
+   * @param {string} duid the device id
+   * @returns {Promise<object|Array>} the get_clean_summary result
+   */
+  async getCleanSummary(duid) {
+    return this.#execute(duid, ROBOROCK_METHOD.GET_CLEAN_SUMMARY, []);
+  }
+
+  /**
    * Forward an RPC command to one robot.
    * @param {string} duid the device id
    * @param {string} method the Roborock method

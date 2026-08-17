@@ -106,6 +106,7 @@ export const ROBOROCK_LOCAL_PORT = Number(process.env.ROBOROCK_LOCAL_PORT) || 58
 export const ROBOROCK_METHOD = {
   GET_STATUS: 'get_status',
   GET_CONSUMABLE: 'get_consumable',
+  GET_CLEAN_SUMMARY: 'get_clean_summary',
   APP_START: 'app_start',
   APP_STOP: 'app_stop',
   APP_PAUSE: 'app_pause',
@@ -207,6 +208,7 @@ export const FEATURE_CODES = {
   CLEAN_MODE: 'clean-mode',
   DOCK: 'dock',
   BATTERY: 'battery',
+  LAST_CLEAN_START: 'last-clean-start',
   MAIN_BRUSH: 'main-brush',
   SIDE_BRUSH: 'side-brush',
   FILTER: 'filter',

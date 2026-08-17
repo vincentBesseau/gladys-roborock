@@ -36,6 +36,7 @@ import {
   buildSetCommand,
   routineIdFromFeatureCode,
 } from './src/devices/vacuum.js';
+import { buildLastCleanStartState, extractLastCleanStart } from './src/devices/lastClean.js';
 import {
   SESSION_KEYS,
   clearedSessionConfig,
@@ -46,6 +47,7 @@ import {
 } from './src/session.js';
 import {
   FEATURE_CODES,
+  ROBOROCK_CLEANING_STATES,
   ROBOROCK_SEGMENT_CLEANING_STATES,
   ROOM_SELECTION_NONE,
 } from './src/constants.js';
@@ -77,6 +79,20 @@ const roomCleanings = new Map();
 // Permet de remettre à zéro une ancienne sélection après un redémarrage de
 // l'intégration, sans effacer une nouvelle sélection avant son démarrage.
 const initializedRoomSelectors = new Set();
+
+/**
+ * Cleaning-history cache.
+ *
+ * get_clean_summary is not guaranteed to be supported locally and can therefore
+ * use the Roborock cloud. Do not execute it on every Gladys poll.
+ *
+ * The QV 35A exposes status.last_clean_t, which corresponds to the end of the
+ * latest cleaning. We use it only as a change marker: the actual feature exposed
+ * to Gladys is the cleaning START timestamp from get_clean_summary.records[0].
+ */
+const cleanHistoryCache = new Map();
+
+const CLEAN_HISTORY_REFRESH_MS = 5 * 60 * 1000;
 
 /**
  * Build the room selector feedback produced by a robot status change.
@@ -124,6 +140,79 @@ function buildRoomSelectionFeedback(duid, ids, status, hasRoomSelector) {
     device_feature_external_id: ids.feature(FEATURE_CODES.ROOM),
     text: ROOM_SELECTION_NONE,
   };
+}
+
+/**
+ * Get the latest cleaning start timestamp while limiting history RPC traffic.
+ *
+ * Verified on Roborock QV 35A (roborock.vacuum.a168):
+ *
+ *   get_clean_summary.records[0] = get_clean_record(...)[0].begin
+ *   get_status.last_clean_t       = get_clean_record(...)[0].end
+ *
+ * last_clean_t is therefore only used as a cheap change detector.
+ *
+ * On models that do not expose last_clean_t, the summary is refreshed
+ * periodically instead.
+ *
+ * @param {string} duid Roborock device id
+ * @param {object} status get_status result
+ * @returns {Promise<number|null>} Unix timestamp in seconds
+ */
+async function getLastCleanStartForPoll(duid, status) {
+  const rawLastCleanEnd = Number(status?.last_clean_t);
+  const lastCleanEnd =
+    Number.isSafeInteger(rawLastCleanEnd) && rawLastCleanEnd > 0 ? rawLastCleanEnd : null;
+
+  const now = Date.now();
+  const cached = cleanHistoryCache.get(duid);
+
+  const roborockState = Number(status?.state);
+  const isCleaning = ROBOROCK_CLEANING_STATES.has(roborockState);
+  const cleaningStarted = isCleaning && cached?.wasCleaning === false;
+
+  const markerChanged =
+    lastCleanEnd !== null &&
+    cached?.lastCleanEnd !== undefined &&
+    lastCleanEnd !== cached.lastCleanEnd;
+
+  const periodicRefreshDue = !cached || now >= (cached.nextRefreshAt || 0);
+
+  // Refresh immediately when a cleaning starts, and again when last_clean_t
+  // changes (normally when that cleaning ends). This makes Last clean start
+  // useful while a cleaning is still in progress instead of only afterwards.
+  if (!cleaningStarted && !markerChanged && !periodicRefreshDue) {
+    if (cached) {
+      cached.wasCleaning = isCleaning;
+    }
+    return cached?.lastCleanStart ?? null;
+  }
+
+  try {
+    const summary = await roborock.getCleanSummary(duid);
+    const lastCleanStart = extractLastCleanStart(summary);
+
+    cleanHistoryCache.set(duid, {
+      lastCleanEnd,
+      lastCleanStart,
+      wasCleaning: isCleaning,
+      nextRefreshAt:
+        lastCleanEnd === null ? now + CLEAN_HISTORY_REFRESH_MS : Number.POSITIVE_INFINITY,
+    });
+
+    return lastCleanStart;
+  } catch (err) {
+    logger.warn(`Could not get cleaning history for ${duid}: ${err.message}`);
+
+    cleanHistoryCache.set(duid, {
+      lastCleanEnd: cached?.lastCleanEnd ?? lastCleanEnd,
+      lastCleanStart: cached?.lastCleanStart ?? null,
+      wasCleaning: isCleaning,
+      nextRefreshAt: now + CLEAN_HISTORY_REFRESH_MS,
+    });
+
+    return cached?.lastCleanStart ?? null;
+  }
 }
 
 /**
@@ -345,6 +434,14 @@ gladys.onPoll(async (device) => {
     ]);
     const ids = vacuumExternalIds(gladys, duid);
     states = [...buildPollStates(ids, status), ...buildConsumableStates(ids, consumable)];
+
+    const lastCleanStart = await getLastCleanStartForPoll(duid, status);
+    const lastCleanState = buildLastCleanStartState(ids, lastCleanStart);
+
+    if (lastCleanState) {
+      states.push(lastCleanState);
+    }
+
     const robot = roborock.listDevices().find((candidate) => candidate.duid === duid);
     const roomSelectionFeedback = buildRoomSelectionFeedback(
       duid,
